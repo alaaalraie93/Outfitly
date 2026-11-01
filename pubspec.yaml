@@ -1,78 +1,27 @@
-name: Build Outfitly APK
+name: outfitly
+description: "Outfitly - smart outfit matching from your own wardrobe."
+publish_to: 'none'
+version: 1.2.0+3
 
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
+environment:
+  sdk: '>=3.4.0 <4.0.0'
 
-permissions:
-  contents: write
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  image_picker: ^1.1.2
+  path_provider: ^2.1.4
+  http: ^1.2.2
+  image: ^4.2.0
+  # Ranges let the build pick the newest versions that fit the installed Flutter.
+  google_mlkit_subject_segmentation: '>=0.0.3 <0.3.0'
+  google_mlkit_image_labeling: '>=0.14.2 <0.17.0'
+  model_viewer_plus: '>=1.9.3 <2.0.0'
+  webview_flutter: '>=4.10.0 <5.0.0'
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get the code
-        uses: actions/checkout@v4
-
-      - name: Install Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Create the Android project files
-        run: |
-          if [ ! -d android ]; then
-            flutter create --platforms=android --org com.outfitly --project-name outfitly .
-          fi
-
-      - name: Configure Android (name, icon, permissions)
-        run: bash tool/configure_android.sh
-
-      - name: Download packages
-        run: flutter pub get
-
-      - name: Build the APK
-        run: flutter build apk --release
-
-      - name: Rename the APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk Outfitly.apk
-
-      # Signs every build with the same Outfitly key so updates install over
-      # the previous version. The key lives in the KEYSTORE_BASE64 secret.
-      - name: Sign with the Outfitly key
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::warning::KEYSTORE_BASE64 secret is missing - the APK keeps a temporary key and will not update over older builds."
-            exit 0
-          fi
-          echo "$KEYSTORE_BASE64" | base64 -d > outfitly.jks
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" sign --ks outfitly.jks --ks-key-alias outfitly \
-            --ks-pass pass:7c07036bbd636330ca5aaec1 --key-pass pass:7c07036bbd636330ca5aaec1 \
-            --out Outfitly-signed.apk Outfitly.apk
-          mv Outfitly-signed.apk Outfitly.apk
-          "$BT/apksigner" verify --print-certs Outfitly.apk | head -3
-          rm -f outfitly.jks
-
-      - name: Upload the APK (Actions tab)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Outfitly-APK
-          path: Outfitly.apk
-
-      - name: Publish the APK (Releases page)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: Outfitly build ${{ github.run_number }}
-          files: Outfitly.apk
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/
