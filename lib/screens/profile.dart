@@ -1,13 +1,17 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../widgets/common.dart';
+import '../share_board.dart';
 import '../widgets/sky.dart';
+import 'packing.dart';
+import 'stats.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,6 +27,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController weight;
   late final TextEditingController city;
   bool findingCity = false;
+  bool busy = false;
+
+  Future<void> _export() async {
+    setState(() => busy = true);
+    try {
+      final path = await AppScope.read(context).exportBackup();
+      await shareFile(path, text: 'Outfitly backup');
+    } catch (_) {
+      if (mounted) showSnack(context, context.tr('backup_failed'));
+    }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> _import() async {
+    final res = await FilePicker.platform.pickFiles(type: FileType.any);
+    final path = res?.files.single.path;
+    if (path == null || !mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(ctx.tr('backup_confirm')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.tr('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.tr('backup_import'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => busy = true);
+    final done = await AppScope.read(context).importBackup(path);
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (done) {
+      final p = AppScope.read(context).profile;
+      name.text = p.name;
+      age.text = p.age.toString();
+      height.text = p.heightCm.round().toString();
+      weight.text = p.weightKg.round().toString();
+      city.text = p.city;
+    }
+    showSnack(context, context.tr(done ? 'backup_done' : 'backup_bad'));
+  }
 
   @override
   void initState() {
@@ -241,6 +287,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   : FilledButton(onPressed: _findCity, child: Text(context.tr('find'))),
             ],
           ),
+          title(context.tr('tools')),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.insights),
+                  title: Text(context.tr('stats_title')),
+                  subtitle: Text(context.tr('stats_sub')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StatsScreen())),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.luggage),
+                  title: Text(context.tr('packing_title')),
+                  subtitle: Text(context.tr('packing_sub')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PackingScreen())),
+                ),
+              ],
+            ),
+          ),
+          title(context.tr('backup_title')),
+          Text(context.tr('backup_sub'), style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: busy ? null : _export,
+                  icon: const Icon(Icons.upload_file),
+                  label: Text(context.tr('backup_export')),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : _import,
+                  icon: const Icon(Icons.download),
+                  label: Text(context.tr('backup_import')),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 32),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
@@ -249,7 +338,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: Text(context.tr('reset_all')),
           ),
           const SizedBox(height: 12),
-          Center(child: Text('Outfitly v1.4.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
+          Center(child: Text('Outfitly v1.5.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
         ],
       ),
     );

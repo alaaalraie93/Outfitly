@@ -8,6 +8,7 @@ import '../l10n.dart';
 import '../matching.dart';
 import '../models.dart';
 import '../state.dart';
+import '../share_board.dart';
 import 'outfit_board.dart';
 import 'sky.dart';
 
@@ -154,7 +155,7 @@ class ReasonsWrap extends StatelessWidget {
 }
 
 /// Outfit board + score + reasons + actions for one look. Reused on every screen.
-class OutfitStage extends StatelessWidget {
+class OutfitStage extends StatefulWidget {
   final Look look;
   final double height;
   final bool actions;
@@ -162,24 +163,45 @@ class OutfitStage extends StatelessWidget {
   const OutfitStage({super.key, required this.look, this.height = 380, this.actions = true, this.extra});
 
   @override
+  State<OutfitStage> createState() => _OutfitStageState();
+}
+
+class _OutfitStageState extends State<OutfitStage> {
+  final GlobalKey _boardKey = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
+    final look = widget.look;
     final result = s.lookScore(look);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Stack(
           children: [
-            OutfitBoard(look: look, height: height),
+            OutfitBoard(look: look, height: widget.height, captureKey: _boardKey),
             if (result != null) PositionedDirectional(top: 12, end: 12, child: ScoreRing(score: result.score, size: 64)),
+            if (!look.isEmpty)
+              PositionedDirectional(
+                bottom: 6,
+                end: 86,
+                child: IconButton.filledTonal(
+                  tooltip: context.tr('share'),
+                  onPressed: () async {
+                    final ok = await shareCapture(_boardKey, text: 'Outfitly ✨');
+                    if (!ok && context.mounted) showSnack(context, context.tr('share_failed'));
+                  },
+                  icon: const Icon(Icons.ios_share),
+                ),
+              ),
           ],
         ),
         if (result != null) ...[
           const SizedBox(height: 10),
           ReasonsWrap(result.reasons),
         ],
-        if (extra != null) ...[const SizedBox(height: 8), extra!],
-        if (actions && look.items.length >= 2) ...[
+        if (widget.extra != null) ...[const SizedBox(height: 8), widget.extra!],
+        if (widget.actions && look.items.length >= 2) ...[
           const SizedBox(height: 8),
           LookActions(look: look),
         ],

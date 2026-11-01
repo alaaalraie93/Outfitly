@@ -1,7 +1,7 @@
 name: outfitly
 description: "Outfitly - smart outfit matching from your own wardrobe."
 publish_to: 'none'
-version: 1.4.0+5
+version: 1.5.0+7
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -18,6 +18,8 @@ dependencies:
   # Ranges let the build pick the newest versions that fit the installed Flutter.
   google_mlkit_subject_segmentation: '>=0.0.3 <0.3.0'
   google_mlkit_image_labeling: '>=0.14.2 <0.17.0'
+  share_plus: '>=10.0.0 <12.0.0'
+  file_picker: 10.3.10
 
 flutter:
   uses-material-design: true

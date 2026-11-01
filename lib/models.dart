@@ -113,6 +113,7 @@ class ClothingItem {
   Season season;
   bool patterned;
   String name;
+  double? price;
   final int createdAt;
 
   ClothingItem({
@@ -126,6 +127,7 @@ class ClothingItem {
     required this.season,
     this.patterned = false,
     this.name = '',
+    this.price,
     required this.createdAt,
   });
 
@@ -142,6 +144,7 @@ class ClothingItem {
         'season': season.name,
         'patterned': patterned,
         'name': name,
+        'price': price,
         'createdAt': createdAt,
       };
 
@@ -158,6 +161,7 @@ class ClothingItem {
       season: enumByName(Season.values, j['season'], Season.all),
       patterned: (j['patterned'] ?? false) as bool,
       name: (j['name'] ?? '') as String,
+      price: (j['price'] as num?)?.toDouble(),
       createdAt: (j['createdAt'] ?? 0) as int,
     );
   }

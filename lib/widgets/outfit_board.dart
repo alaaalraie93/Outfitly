@@ -14,7 +14,10 @@ enum BoardLayout { stack, collage }
 class OutfitBoard extends StatefulWidget {
   final Look look;
   final double height;
-  const OutfitBoard({super.key, required this.look, this.height = 420});
+
+  /// When given, the board (without its buttons) can be captured as an image.
+  final GlobalKey? captureKey;
+  const OutfitBoard({super.key, required this.look, this.height = 420, this.captureKey});
 
   @override
   State<OutfitBoard> createState() => _OutfitBoardState();
@@ -32,47 +35,69 @@ class _OutfitBoardState extends State<OutfitBoard> {
       height: widget.height,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: dark ? const [Color(0xFF1B2D45), Color(0xFF0F1B2C)] : const [Color(0xFFFFFFFF), Color(0xFFE6F4FF)],
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
-                  switchInCurve: Curves.easeOutCubic,
-                  child: LayoutBuilder(
-                    key: ValueKey('${_layout.name}|${look.key}'),
-                    builder: (context, c) => _layout == BoardLayout.stack
-                        ? _stack(context, look, c.biggest)
-                        : _collage(context, look, c.biggest),
-                  ),
-                ),
-              ),
-              PositionedDirectional(
-                start: 10,
-                bottom: 10,
-                child: Container(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: RepaintBoundary(
+                key: widget.captureKey,
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: scheme.surface.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: dark ? const [Color(0xFF1B2D45), Color(0xFF0F1B2C)] : const [Color(0xFFFFFFFF), Color(0xFFE6F4FF)],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Stack(
                     children: [
-                      _layoutButton(BoardLayout.stack, Icons.view_agenda_outlined, scheme),
-                      _layoutButton(BoardLayout.collage, Icons.dashboard_outlined, scheme),
+                      Positioned.fill(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 280),
+                          switchInCurve: Curves.easeOutCubic,
+                          child: LayoutBuilder(
+                            key: ValueKey('${_layout.name}|${look.key}'),
+                            builder: (context, c) => _layout == BoardLayout.stack
+                                ? _stack(context, look, c.biggest)
+                                : _collage(context, look, c.biggest),
+                          ),
+                        ),
+                      ),
+                      PositionedDirectional(
+                        end: 14,
+                        bottom: 12,
+                        child: Text(
+                          'Outfitly',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: scheme.primary.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+            PositionedDirectional(
+              start: 10,
+              bottom: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: scheme.surface.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _layoutButton(BoardLayout.stack, Icons.view_agenda_outlined, scheme),
+                    _layoutButton(BoardLayout.collage, Icons.dashboard_outlined, scheme),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

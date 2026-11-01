@@ -6,6 +6,7 @@ import '../models.dart';
 import '../widgets/common.dart';
 import '../widgets/sky.dart';
 import 'item_detail.dart';
+import 'packing.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -50,7 +51,13 @@ class _TodayScreenState extends State<TodayScreen> {
     final text = Theme.of(context).textTheme;
     final season = s.targetSeason();
     final list = s.suggestions(season);
-    final look = list.isEmpty ? null : list[pick % list.length];
+    final planLog = s.planFor(DateTime.now());
+    final planned = planLog == null ? null : s.lookFromLog(planLog);
+    final hasPlan = planned != null && planned.clothes.isNotEmpty;
+    final Look? look = (hasPlan && pick == 0)
+        ? planned
+        : (list.isNotEmpty ? list[(hasPlan ? pick - 1 : pick) % list.length] : null);
+    final showingPlan = hasPlan && pick == 0;
     final w = s.weather;
     final name = s.profile.name.trim();
     final forgotten = s.forgottenItems().take(12).toList();
@@ -146,6 +153,14 @@ class _TodayScreenState extends State<TodayScreen> {
               if (look == null)
                 EmptyState(icon: Icons.wb_sunny_outlined, text: context.tr('need_more_items'))
               else ...[
+                if (showingPlan)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Chip(
+                      avatar: const Icon(Icons.event_note, size: 18),
+                      label: Text(context.tr('planned_today')),
+                    ),
+                  ),
                 OutfitStage(look: look, height: 420),
                 const SizedBox(height: 12),
                 Row(
@@ -153,7 +168,7 @@ class _TodayScreenState extends State<TodayScreen> {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                        onPressed: list.length > 1 ? () => setState(() => pick++) : null,
+                        onPressed: (list.length > 1 || (hasPlan && list.isNotEmpty)) ? () => setState(() => pick++) : null,
                         icon: const Icon(Icons.shuffle),
                         label: Text(context.tr('another')),
                       ),
@@ -173,6 +188,35 @@ class _TodayScreenState extends State<TodayScreen> {
                   ],
                 ),
               ],
+              const SizedBox(height: 22),
+              InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PackingScreen())),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: scheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🧳', style: TextStyle(fontSize: 30)),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(context.tr('packing_title'),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: scheme.onTertiaryContainer)),
+                            Text(context.tr('packing_sub'), style: TextStyle(color: scheme.onTertiaryContainer.withValues(alpha: 0.85))),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, color: scheme.onTertiaryContainer),
+                    ],
+                  ),
+                ),
+              ),
               if (forgotten.isNotEmpty) ...[
                 const SizedBox(height: 26),
                 Text('${context.tr('forgotten_title')} 🕸️', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),

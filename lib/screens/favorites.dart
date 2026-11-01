@@ -5,6 +5,7 @@ import '../models.dart';
 import '../state.dart';
 import '../widgets/common.dart';
 import '../widgets/sky.dart';
+import 'calendar.dart';
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
@@ -19,7 +20,7 @@ class FavoritesScreen extends StatelessWidget {
           title: BrandTitle(context.tr('tab_saved')),
           bottom: TabBar(tabs: [
             Tab(text: context.tr('saved_outfits')),
-            Tab(text: context.tr('history')),
+            Tab(text: context.tr('calendar')),
           ]),
         ),
         body: TabBarView(
@@ -44,34 +45,7 @@ class FavoritesScreen extends StatelessWidget {
                       );
                     },
                   ),
-            s.history.isEmpty
-                ? EmptyState(icon: Icons.event_note, text: context.tr('no_history'))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: s.history.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) {
-                      final h = s.history[i];
-                      final look = Look.fromItems(h.itemIds.map(s.itemById).whereType<ClothingItem>());
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(h.date, style: const TextStyle(fontWeight: FontWeight.w700)),
-                              ),
-                              for (final it in look.items)
-                                Padding(
-                                  padding: const EdgeInsetsDirectional.only(start: 6),
-                                  child: SizedBox(width: 52, height: 52, child: ItemImage(item: it, radius: 12)),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+            const CalendarView(),
           ],
         ),
       ),
@@ -167,6 +141,24 @@ class OutfitViewScreen extends StatelessWidget {
             },
             icon: const Icon(Icons.event_available),
             label: Text(context.tr('wear_this')),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+            onPressed: () async {
+              final now = DateTime.now();
+              final day = await showDatePicker(
+                context: context,
+                initialDate: now.add(const Duration(days: 1)),
+                firstDate: now,
+                lastDate: now.add(const Duration(days: 365)),
+              );
+              if (day == null) return;
+              s.setPlan(day, look);
+              if (context.mounted) showSnack(context, context.tr('planned_ok'));
+            },
+            icon: const Icon(Icons.event_note),
+            label: Text(context.tr('plan_for_day')),
           ),
         ],
       ),

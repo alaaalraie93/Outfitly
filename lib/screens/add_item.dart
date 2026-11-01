@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../color_utils.dart';
 import '../classify.dart';
 import '../cutout.dart';
+import '../rotate.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
@@ -26,6 +27,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   bool analyzing = false;
   bool removingBg = false;
   bool detecting = false;
+  bool rotating = false;
   bool autoFilled = false;
   List<int> palette = [];
   int? color;
@@ -35,6 +37,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   Season season = Season.summer;
   bool patterned = false;
   final name = TextEditingController();
+  final price = TextEditingController();
   bool saving = false;
 
   @override
@@ -51,12 +54,14 @@ class _AddItemScreenState extends State<AddItemScreen> {
       season = e.season;
       patterned = e.patterned;
       name.text = e.name;
+      if (e.price != null) price.text = e.price!.toStringAsFixed(e.price! % 1 == 0 ? 0 : 2);
     }
   }
 
   @override
   void dispose() {
     name.dispose();
+    price.dispose();
     super.dispose();
   }
 
@@ -124,6 +129,30 @@ class _AddItemScreenState extends State<AddItemScreen> {
     });
   }
 
+  /// Turns the photo by 90 degrees (both the cut-out and the original).
+  Future<void> _rotate(bool clockwise) async {
+    final current = photoPath;
+    if (current == null || rotating) return;
+    setState(() => rotating = true);
+    final turned = await rotatePhoto(current, clockwise);
+    String? orig = originalPath;
+    String? cut = cutoutPath;
+    if (orig != null && orig != current) orig = await rotatePhoto(orig, clockwise) ?? orig;
+    if (cut != null && cut != current) cut = await rotatePhoto(cut, clockwise) ?? cut;
+    if (!mounted) return;
+    setState(() {
+      rotating = false;
+      if (turned == null) return;
+      if (current == originalPath) orig = turned;
+      if (current == cutoutPath) cut = turned;
+      originalPath = orig;
+      cutoutPath = cut;
+      photoPath = turned;
+    });
+    // The shape changed, so guess the type again for new pieces.
+    if (turned != null && widget.existing == null) await _autoFill();
+  }
+
   void _usePhoto(String? path) {
     if (path == null || path == photoPath) return;
     setState(() => photoPath = path);
@@ -164,6 +193,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         season: season,
         patterned: patterned,
         name: name.text.trim(),
+        price: double.tryParse(price.text.trim().replaceAll(',', '.')),
         createdAt: DateTime.now().millisecondsSinceEpoch,
       ));
     } else {
@@ -182,7 +212,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
         ..style = style
         ..season = season
         ..patterned = patterned
-        ..name = name.text.trim();
+        ..name = name.text.trim()
+        ..price = double.tryParse(price.text.trim().replaceAll(',', '.'));
       s.updateItem(e);
     }
     if (mounted) Navigator.pop(context);
@@ -283,13 +314,25 @@ class _AddItemScreenState extends State<AddItemScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                IconButton.filledTonal(
+                                  tooltip: context.tr('rotate_left'),
+                                  onPressed: rotating ? null : () => _rotate(false),
+                                  icon: const Icon(Icons.rotate_left),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton.filledTonal(
+                                  tooltip: context.tr('rotate_right'),
+                                  onPressed: rotating ? null : () => _rotate(true),
+                                  icon: const Icon(Icons.rotate_right),
+                                ),
+                                const SizedBox(width: 8),
                                 IconButton.filledTonal(onPressed: () => _pick(ImageSource.camera), icon: const Icon(Icons.photo_camera)),
                                 const SizedBox(width: 8),
                                 IconButton.filledTonal(onPressed: () => _pick(ImageSource.gallery), icon: const Icon(Icons.photo_library)),
                               ],
                             ),
                           ),
-                          if (analyzing) const Center(child: CircularProgressIndicator()),
+                          if (analyzing || rotating) const Center(child: CircularProgressIndicator()),
                         ],
                       ),
               ),
@@ -397,6 +440,16 @@ class _AddItemScreenState extends State<AddItemScreen> {
           ),
           const SizedBox(height: 8),
           TextField(controller: name, decoration: InputDecoration(labelText: context.tr('name_optional'), border: const OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(
+            controller: price,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: context.tr('price_optional'),
+              helperText: context.tr('price_help'),
+              border: const OutlineInputBorder(),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -404,7 +457,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-            onPressed: (path == null || color == null || analyzing || removingBg || detecting || saving) ? null : _save,
+            onPressed: (path == null || color == null || analyzing || removingBg || detecting || rotating || saving) ? null : _save,
             icon: const Icon(Icons.check),
             label: Text(context.tr('save')),
           ),

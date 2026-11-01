@@ -15,6 +15,7 @@ class AppState extends ChangeNotifier {
   final List<ClothingItem> items = [];
   final List<Outfit> outfits = [];
   final List<WearLog> history = [];
+  final List<WearLog> plans = []; // outfits planned for future days
   final Map<String, double> pairPrefs = {};
   WeatherNow? weather;
 
@@ -34,39 +35,50 @@ class AppState extends ChangeNotifier {
       _dir = await getApplicationDocumentsDirectory();
       final f = File('${_dir!.path}/outfitly.json');
       if (await f.exists()) {
-        final data = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-        profile = Profile.fromJson((data['profile'] ?? <String, dynamic>{}) as Map<String, dynamic>);
-        items
-          ..clear()
-          ..addAll(((data['items'] ?? const []) as List).map((e) => ClothingItem.fromJson(e as Map<String, dynamic>)));
-        outfits
-          ..clear()
-          ..addAll(((data['outfits'] ?? const []) as List).map((e) => Outfit.fromJson(e as Map<String, dynamic>)));
-        history
-          ..clear()
-          ..addAll(((data['history'] ?? const []) as List).map((e) => WearLog.fromJson(e as Map<String, dynamic>)));
-        pairPrefs.clear();
-        final p = (data['prefs'] ?? <String, dynamic>{}) as Map<String, dynamic>;
-        p.forEach((k, v) => pairPrefs[k] = (v as num).toDouble());
-        weather = WeatherNow.fromJson(data['weather']);
+        _applyData(jsonDecode(await f.readAsString()) as Map<String, dynamic>);
       }
     } catch (e) {
       debugPrint('Outfitly load error: $e');
     }
   }
 
+  void _applyData(Map<String, dynamic> data) {
+    List<T> list<T>(String key, T Function(Map<String, dynamic>) f) =>
+        ((data[key] ?? const []) as List).map((e) => f(e as Map<String, dynamic>)).toList();
+    profile = Profile.fromJson((data['profile'] ?? <String, dynamic>{}) as Map<String, dynamic>);
+    items
+      ..clear()
+      ..addAll(list('items', ClothingItem.fromJson));
+    outfits
+      ..clear()
+      ..addAll(list('outfits', Outfit.fromJson));
+    history
+      ..clear()
+      ..addAll(list('history', WearLog.fromJson));
+    plans
+      ..clear()
+      ..addAll(list('plans', WearLog.fromJson));
+    pairPrefs.clear();
+    final p = (data['prefs'] ?? <String, dynamic>{}) as Map<String, dynamic>;
+    p.forEach((k, v) => pairPrefs[k] = (v as num).toDouble());
+    weather = WeatherNow.fromJson(data['weather']);
+  }
+
+  Map<String, dynamic> _data() => {
+        'profile': profile.toJson(),
+        'items': items.map((e) => e.toJson()).toList(),
+        'outfits': outfits.map((e) => e.toJson()).toList(),
+        'history': history.map((e) => e.toJson()).toList(),
+        'plans': plans.map((e) => e.toJson()).toList(),
+        'prefs': pairPrefs,
+        'weather': weather?.toJson(),
+      };
+
   void _persist() {
     notifyListeners();
     final dir = _dir;
     if (dir == null) return;
-    final json = jsonEncode({
-      'profile': profile.toJson(),
-      'items': items.map((e) => e.toJson()).toList(),
-      'outfits': outfits.map((e) => e.toJson()).toList(),
-      'history': history.map((e) => e.toJson()).toList(),
-      'prefs': pairPrefs,
-      'weather': weather?.toJson(),
-    });
+    final json = jsonEncode(_data());
     _saving = _saving.then((_) async {
       try {
         final tmp = File('${dir.path}/outfitly.json.tmp');
@@ -76,6 +88,64 @@ class AppState extends ChangeNotifier {
         debugPrint('Outfitly save error: $e');
       }
     });
+  }
+
+  // ---------- backup ----------
+  /// Writes everything (including photos) into one file and returns its path.
+  Future<String> exportBackup() async {
+    final data = _data();
+    final photos = <String, String>{};
+    Future<void> addPhoto(String? path) async {
+      if (path == null || path.isEmpty || photos.containsKey(path)) return;
+      final f = File(path);
+      if (await f.exists()) photos[path] = base64Encode(await f.readAsBytes());
+    }
+
+    for (final it in items) {
+      await addPhoto(it.imagePath);
+    }
+    await addPhoto(profile.facePath);
+    data['photos'] = photos;
+    data['backupVersion'] = 1;
+    data['createdAt'] = DateTime.now().toIso8601String();
+    final dir = await getTemporaryDirectory();
+    final out = File('${dir.path}/outfitly-backup-${dateKey(DateTime.now())}.json');
+    await out.writeAsString(jsonEncode(data), flush: true);
+    return out.path;
+  }
+
+  /// Replaces all data with a backup file. Returns false if the file is not a backup.
+  Future<bool> importBackup(String path) async {
+    try {
+      final data = jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
+      if (data['backupVersion'] == null || data['items'] == null) return false;
+      final dir = _dir ?? await getApplicationDocumentsDirectory();
+      final imgDir = Directory('${dir.path}/images');
+      if (!await imgDir.exists()) await imgDir.create(recursive: true);
+      final photos = (data['photos'] ?? <String, dynamic>{}) as Map<String, dynamic>;
+      final moved = <String, String>{};
+      for (final entry in photos.entries) {
+        final ext = entry.key.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+        final dest = '${imgDir.path}/restored-${newId()}.$ext';
+        await File(dest).writeAsBytes(base64Decode(entry.value as String), flush: true);
+        moved[entry.key] = dest;
+      }
+      for (final it in (data['items'] as List)) {
+        final m = it as Map<String, dynamic>;
+        m['imagePath'] = moved[m['imagePath']] ?? m['imagePath'];
+      }
+      final prof = (data['profile'] ?? <String, dynamic>{}) as Map<String, dynamic>;
+      if (prof['facePath'] != null) prof['facePath'] = moved[prof['facePath']];
+      final lang = profile.lang;
+      _applyData(data);
+      if (profile.lang.isEmpty) profile.lang = lang;
+      profile.onboarded = true;
+      _persist();
+      return true;
+    } catch (e) {
+      debugPrint('Outfitly import error: $e');
+      return false;
+    }
   }
 
   /// Copies a picked photo into the app's private folder.
@@ -176,8 +246,58 @@ class AppState extends ChangeNotifier {
     final today = dateKey(DateTime.now());
     history.removeWhere((h) => h.date == today);
     history.insert(0, WearLog(date: today, itemIds: look.items.map((e) => e.id).toList()));
+    plans.removeWhere((p) => p.date == today);
     _persist();
   }
+
+  // ---------- planning ----------
+  WearLog? planFor(DateTime day) {
+    final key = dateKey(day);
+    for (final p in plans) {
+      if (p.date == key) return p;
+    }
+    return null;
+  }
+
+  WearLog? wornOn(DateTime day) {
+    final key = dateKey(day);
+    for (final h in history) {
+      if (h.date == key) return h;
+    }
+    return null;
+  }
+
+  void setPlan(DateTime day, Look look) {
+    final key = dateKey(day);
+    plans.removeWhere((p) => p.date == key);
+    plans.add(WearLog(date: key, itemIds: look.items.map((e) => e.id).toList()));
+    _persist();
+  }
+
+  void clearPlan(DateTime day) {
+    final key = dateKey(day);
+    plans.removeWhere((p) => p.date == key);
+    _persist();
+  }
+
+  void wearOn(DateTime day, Look look) {
+    final key = dateKey(day);
+    history.removeWhere((h) => h.date == key);
+    history.add(WearLog(date: key, itemIds: look.items.map((e) => e.id).toList()));
+    history.sort((a, b) => b.date.compareTo(a.date));
+    plans.removeWhere((p) => p.date == key);
+    _persist();
+  }
+
+  void clearWorn(DateTime day) {
+    final key = dateKey(day);
+    history.removeWhere((h) => h.date == key);
+    _persist();
+  }
+
+  Look lookFromLog(WearLog log) => Look.fromItems(log.itemIds.map(itemById).whereType<ClothingItem>());
+
+  int wearCount(String itemId) => history.where((h) => h.itemIds.contains(itemId)).length;
 
   /// How many of the last 3 days an item was worn.
   int recentWear(String itemId) {
@@ -343,6 +463,7 @@ class AppState extends ChangeNotifier {
     items.clear();
     outfits.clear();
     history.clear();
+    plans.clear();
     pairPrefs.clear();
     weather = null;
     final lang = profile.lang;

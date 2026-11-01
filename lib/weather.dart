@@ -86,4 +86,25 @@ class WeatherService {
       return null;
     }
   }
+
+  /// Average daily high for the next [days] days (for trip packing).
+  static Future<double?> averageHigh(double lat, double lon, {int days = 7}) async {
+    try {
+      final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
+        'latitude': lat.toString(),
+        'longitude': lon.toString(),
+        'daily': 'temperature_2m_max',
+        'forecast_days': days.clamp(1, 16).toString(),
+        'timezone': 'auto',
+      });
+      final res = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final list = ((data['daily'] as Map<String, dynamic>)['temperature_2m_max'] as List).whereType<num>().toList();
+      if (list.isEmpty) return null;
+      return list.fold<double>(0, (a, b) => a + b.toDouble()) / list.length;
+    } catch (_) {
+      return null;
+    }
+  }
 }
