@@ -9,7 +9,6 @@ import '../cutout.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
-import '../widgets/mannequin.dart';
 
 /// Add a new piece, or edit an existing one when [existing] is given.
 class AddItemScreen extends StatefulWidget {
@@ -171,7 +170,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
       if (path != e.imagePath) {
         final old = e.imagePath;
         e.imagePath = await s.storeImage(path, 'item');
-        UiImageStore.evict(old);
         try {
           await File(old).delete();
         } catch (_) {}

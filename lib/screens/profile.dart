@@ -8,7 +8,6 @@ import '../models.dart';
 import '../state.dart';
 import '../widgets/common.dart';
 import '../widgets/sky.dart';
-import '../widgets/mannequin.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -59,7 +58,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 900, imageQuality: 90);
     if (x == null || !mounted) return;
     final s = AppScope.read(context);
-    UiImageStore.evict(s.profile.facePath);
     await s.setFacePhoto(x.path);
   }
 
@@ -119,7 +117,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Expanded(
                 flex: 5,
-                child: Mannequin(profile: p, look: const Look(), height: 300),
+                child: Container(
+                  height: 230,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(gradient: Sky.brand, borderRadius: BorderRadius.circular(24)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        p.bodyType == BodyType.girl ? Icons.woman : (p.bodyType == BodyType.boy ? Icons.man : Icons.child_care),
+                        color: Colors.white,
+                        size: 44,
+                      ),
+                      const Spacer(),
+                      Text(p.name.isEmpty ? context.tr(p.bodyType.name) : p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 6),
+                      Text('${p.heightCm.round()} cm · ${p.weightKg.round()} kg · ${p.age}',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.9))),
+                      Text('${s.items.length} · ${context.tr('tab_wardrobe')}',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.9))),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -140,7 +162,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     if (face != null)
                       TextButton(
                         onPressed: () {
-                          UiImageStore.evict(face);
                           s.setFacePhoto(null);
                         },
                         child: Text(context.tr('remove')),
@@ -228,7 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: Text(context.tr('reset_all')),
           ),
           const SizedBox(height: 12),
-          Center(child: Text('Outfitly v1.2.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
+          Center(child: Text('Outfitly v1.4.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
         ],
       ),
     );

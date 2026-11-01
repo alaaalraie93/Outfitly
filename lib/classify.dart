@@ -277,5 +277,6 @@ _Shape _analyzeShape(_ShapeInput input) {
   // Hood: a narrow bump above the shoulders in the middle.
   final hood = widthAt(0.03) > 0 && widthAt(0.03) < topW * 0.6 && centerEmpty(0.03) == false;
 
-  return _Shape(true, aspect, fill, widening, legGap, sleeves, longSleeves, hood, far / visible > 0.3);
+  // Only trust the pattern guess on clean cut-outs; backgrounds fool it.
+  return _Shape(true, aspect, fill, widening, legGap, sleeves, longSleeves, hood, cut && far / visible > 0.4);
 }

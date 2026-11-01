@@ -131,6 +131,9 @@ ColorFamily colorFamily(Color c) {
   if (l > 0.9 && s < 0.5) return ColorFamily.white;
   if (s < 0.12) return l > 0.75 ? ColorFamily.white : ColorFamily.grey;
   if (h >= 20 && h < 50 && s < 0.5 && l > 0.6) return ColorFamily.beige;
+  // Olive / khaki green: dark yellow-green where green is nearly as strong as red.
+  final r8 = (c.r * 255), g8 = (c.g * 255);
+  if (l < 0.45 && h >= 35 && h < 95 && g8 >= r8 * 0.88) return ColorFamily.olive;
   if (h >= 10 && h < 45 && l < 0.45) return ColorFamily.brown;
   if (h >= 200 && h < 255 && l < 0.3) return ColorFamily.navy;
   if ((h >= 330 || h < 10) && l < 0.32) return ColorFamily.burgundy;
@@ -152,6 +155,7 @@ bool isNeutral(Color c) {
       f == ColorFamily.grey ||
       f == ColorFamily.beige ||
       f == ColorFamily.navy ||
+      f == ColorFamily.olive ||
       f == ColorFamily.brown;
 }
 

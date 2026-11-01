@@ -8,7 +8,7 @@ import '../l10n.dart';
 import '../matching.dart';
 import '../models.dart';
 import '../state.dart';
-import 'mannequin.dart';
+import 'outfit_board.dart';
 import 'sky.dart';
 
 Color scoreColor(int score) {
@@ -153,7 +153,7 @@ class ReasonsWrap extends StatelessWidget {
   }
 }
 
-/// Mannequin + score + reasons + actions for one look. Reused on every screen.
+/// Outfit board + score + reasons + actions for one look. Reused on every screen.
 class OutfitStage extends StatelessWidget {
   final Look look;
   final double height;
@@ -170,22 +170,8 @@ class OutfitStage extends StatelessWidget {
       children: [
         Stack(
           children: [
-            Mannequin(profile: s.profile, look: look, height: height),
-            if (result != null) PositionedDirectional(top: 12, end: 12, child: ScoreRing(score: result.score)),
-            PositionedDirectional(
-              top: 12,
-              start: 12,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final it in look.items)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: SizedBox(width: 44, height: 44, child: ItemImage(item: it, radius: 12)),
-                    ),
-                ],
-              ),
-            ),
+            OutfitBoard(look: look, height: height),
+            if (result != null) PositionedDirectional(top: 12, end: 12, child: ScoreRing(score: result.score, size: 64)),
           ],
         ),
         if (result != null) ...[
