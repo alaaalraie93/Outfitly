@@ -48,7 +48,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     if (current.items.any((e) => s.itemById(e.id) == null) || current.slot(item.category)?.id != item.id) {
       current = s.bestLookFor(item);
     }
-    final targets = targetsFor(item.category, s.profile.bodyType);
+    final targets = targetsFor(item.category, s.profile.bodyType)
+        .where((c) => c != ClothCat.accessory || s.itemsIn(c).isNotEmpty)
+        .toList();
     final text = Theme.of(context).textTheme;
 
     return Scaffold(

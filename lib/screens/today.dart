@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../l10n.dart';
 import '../state.dart';
+import '../models.dart';
 import '../widgets/common.dart';
+import '../widgets/sky.dart';
+import 'item_detail.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -50,6 +53,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final look = list.isEmpty ? null : list[pick % list.length];
     final w = s.weather;
     final name = s.profile.name.trim();
+    final forgotten = s.forgottenItems().take(12).toList();
 
     return Scaffold(
       body: SafeArea(
@@ -58,35 +62,83 @@ class _TodayScreenState extends State<TodayScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
-              Text(name.isEmpty ? context.tr('hello') : '${context.tr('hello')} $name', style: text.titleMedium?.copyWith(color: scheme.onSurfaceVariant)),
-              Text(context.tr('today_title'), style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const OutfitlyLogo(size: 46),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name.isEmpty ? context.tr('hello') : '${context.tr('hello')} $name 👋',
+                            style: text.titleMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                        GradientText(context.tr('today_title'), style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: scheme.secondaryContainer, borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: Sky.brand,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [BoxShadow(color: Sky.blue.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))],
+                ),
                 child: Row(
                   children: [
-                    loadingWeather
-                        ? const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.5))
-                        : Icon(_weatherIcon(s), size: 30, color: scheme.onSecondaryContainer),
-                    const SizedBox(width: 12),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), shape: BoxShape.circle),
+                      child: loadingWeather
+                          ? const Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                          : Icon(_weatherIcon(s), size: 30, color: Colors.white),
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (w != null && w.isToday)
                             Text('${w.tempC.round()}°C · ${s.profile.city}',
-                                style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSecondaryContainer))
+                                style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800, color: Colors.white))
                           else
                             Text(
                               s.profile.lat == null ? context.tr('weather_add_city') : context.tr('weather_offline'),
-                              style: TextStyle(color: scheme.onSecondaryContainer, fontWeight: FontWeight.w600),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                             ),
                           Text('${context.tr('picked_for')} ${context.tr('season_${season.name}')}',
-                              style: TextStyle(color: scheme.onSecondaryContainer.withValues(alpha: 0.8))),
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(context.tr('occasion'), style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 44,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final o in Occasion.values)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        child: ChoiceChip(
+                          avatar: Text(_occasionEmoji(o)),
+                          label: Text(context.tr('occ_${o.name}')),
+                          selected: s.occasion == o,
+                          showCheckmark: false,
+                          onSelected: (_) {
+                            s.setOccasion(o);
+                            setState(() => pick = 0);
+                          },
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -121,10 +173,47 @@ class _TodayScreenState extends State<TodayScreen> {
                   ],
                 ),
               ],
+              if (forgotten.isNotEmpty) ...[
+                const SizedBox(height: 26),
+                Text('${context.tr('forgotten_title')} 🕸️', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                Text(context.tr('forgotten_sub'), style: TextStyle(color: scheme.onSurfaceVariant)),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 110,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: forgotten.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) => GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: forgotten[i].id))),
+                      child: SizedBox(width: 96, child: ItemImage(item: forgotten[i], radius: 18)),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+String _occasionEmoji(Occasion o) {
+  switch (o) {
+    case Occasion.any:
+      return '✨';
+    case Occasion.work:
+      return '💼';
+    case Occasion.university:
+      return '📚';
+    case Occasion.outing:
+      return '☕';
+    case Occasion.wedding:
+      return '💍';
+    case Occasion.sport:
+      return '🏃';
+    case Occasion.evening:
+      return '🌙';
   }
 }

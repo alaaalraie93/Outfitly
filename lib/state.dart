@@ -220,7 +220,34 @@ class AppState extends ChangeNotifier {
     return seasonForDate(DateTime.now());
   }
 
-  /// Ranked daily suggestions for the given season.
+  /// Today's occasion (chosen on the Today screen).
+  Occasion occasion = Occasion.any;
+
+  void setOccasion(Occasion o) {
+    occasion = o;
+    notifyListeners();
+  }
+
+  /// Pieces not worn for [days] days (and owned at least that long).
+  List<ClothingItem> forgottenItems({int days = 30}) {
+    final now = DateTime.now();
+    final cutoff = now.subtract(Duration(days: days));
+    final cutoffKey = dateKey(cutoff);
+    final lastWorn = <String, String>{};
+    for (final h in history) {
+      for (final id in h.itemIds) {
+        final prev = lastWorn[id];
+        if (prev == null || h.date.compareTo(prev) > 0) lastWorn[id] = h.date;
+      }
+    }
+    return items.where((it) {
+      if (DateTime.fromMillisecondsSinceEpoch(it.createdAt).isAfter(cutoff)) return false;
+      final lw = lastWorn[it.id];
+      return lw == null || lw.compareTo(cutoffKey) < 0;
+    }).toList();
+  }
+
+  /// Ranked daily suggestions for the given season and the current occasion.
   List<Look> suggestions(Season target, {int limit = 30}) {
     final tops = itemsIn(ClothCat.top);
     final bottoms = itemsIn(ClothCat.bottom);
@@ -248,8 +275,12 @@ class AppState extends ChangeNotifier {
       if (r == null) continue;
       final its = l.items;
       final fit = its.map((e) => seasonFit(e.season, target)).reduce((a, b) => a + b) / its.length;
+      final occ = its.map((e) => occasionFit(e.style, occasion)).reduce((a, b) => a + b) / its.length;
       final worn = its.map((e) => recentWear(e.id)).reduce((a, b) => a + b);
-      scored.add(MapEntry(l, r.score * 0.75 + fit * 0.25 - worn * 6));
+      final value = occasion == Occasion.any
+          ? r.score * 0.75 + fit * 0.25
+          : r.score * 0.5 + fit * 0.2 + occ * 0.3;
+      scored.add(MapEntry(l, value - worn * 6));
     }
     scored.sort((a, b) => b.value.compareTo(a.value));
     // Small daily shuffle among near-equal options so the top pick changes day to day.
@@ -263,7 +294,24 @@ class AppState extends ChangeNotifier {
         top[i + 1] = tmp;
       }
     }
-    return top.map((e) => e.key).toList();
+    // Finish each look with the accessory that suits it best.
+    final accessories = itemsIn(ClothCat.accessory);
+    return top.map((e) {
+      final look = e.key;
+      if (accessories.isEmpty) return look;
+      ClothingItem? best;
+      double bestScore = -1;
+      for (final a in accessories) {
+        final sc = look.items.map((it) => m.pair(it, a).score).reduce((x, y) => x + y) / look.items.length +
+            occasionFit(a.style, occasion) * 0.2 +
+            seasonFit(a.season, target) * 0.1;
+        if (sc > bestScore) {
+          bestScore = sc;
+          best = a;
+        }
+      }
+      return best == null ? look : look.withItem(best);
+    }).toList();
   }
 
   Future<bool> refreshWeather() async {

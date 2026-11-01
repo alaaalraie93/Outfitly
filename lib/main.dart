@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home.dart';
 import 'screens/onboarding.dart';
 import 'state.dart';
+import 'widgets/sky.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,15 +13,27 @@ Future<void> main() async {
   runApp(OutfitlyApp(state: state));
 }
 
-const kSeed = Color(0xFF8E4F36);
-
 ThemeData buildTheme(Brightness b) {
-  final scheme = ColorScheme.fromSeed(seedColor: kSeed, brightness: b);
+  final dark = b == Brightness.dark;
+  final base = ColorScheme.fromSeed(seedColor: Sky.blue, brightness: b);
+  final scheme = base.copyWith(
+    primary: dark ? const Color(0xFF7FD0FF) : Sky.deep,
+    tertiary: Sky.coral,
+    surface: dark ? const Color(0xFF0E1A2B) : const Color(0xFFF7FBFF),
+  );
+  const shape = StadiumBorder();
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: scheme.surface,
-    visualDensity: VisualDensity.standard,
+    filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(shape: shape)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(shape: shape)),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: dark ? const Color(0xFF12223A) : Colors.white,
+      indicatorColor: dark ? const Color(0xFF1E4F7D) : Sky.light,
+      elevation: 3,
+    ),
+    chipTheme: ChipThemeData(shape: const StadiumBorder(), side: BorderSide(color: scheme.outlineVariant)),
   );
 }
 

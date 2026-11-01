@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
+import '../widgets/sky.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -61,21 +62,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      body: SafeArea(
+      body: SkyBackground(
+        child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(22)),
-              child: Icon(Icons.checkroom, color: scheme.onPrimary, size: 40),
-            ),
-            const SizedBox(height: 20),
-            Text(context.tr('welcome_title'), style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+            const Align(alignment: AlignmentDirectional.centerStart, child: OutfitlyLogo(size: 84)),
+            const SizedBox(height: 22),
+            GradientText(context.tr('welcome_title'), style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),
             Text(context.tr('welcome_sub'), style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant)),
+            Text(context.tr('tagline'), style: text.bodyMedium?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 28),
             Text(context.tr('choose_language'), style: text.titleMedium),
             const SizedBox(height: 8),
@@ -126,6 +123,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -154,15 +152,16 @@ class _BodyCard extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
-          color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+          color: selected ? null : scheme.surface.withValues(alpha: 0.85),
+          gradient: selected ? Sky.brand : null,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? scheme.primary : Colors.transparent, width: 2),
+          border: Border.all(color: selected ? Colors.transparent : scheme.outlineVariant, width: 1.5),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 36, color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant),
+            Icon(icon, size: 36, color: selected ? Colors.white : scheme.onSurfaceVariant),
             const SizedBox(height: 6),
-            Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: selected ? scheme.onPrimaryContainer : scheme.onSurface)),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: selected ? Colors.white : scheme.onSurface)),
           ],
         ),
       ),

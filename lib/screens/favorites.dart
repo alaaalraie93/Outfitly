@@ -4,6 +4,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../widgets/common.dart';
+import '../widgets/sky.dart';
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
@@ -15,7 +16,7 @@ class FavoritesScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(context.tr('tab_saved'), style: const TextStyle(fontWeight: FontWeight.w800)),
+          title: BrandTitle(context.tr('tab_saved')),
           bottom: TabBar(tabs: [
             Tab(text: context.tr('saved_outfits')),
             Tab(text: context.tr('history')),

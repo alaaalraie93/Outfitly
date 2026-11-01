@@ -25,6 +25,16 @@ List<int> _analyze(Uint8List bytes) {
   final w = im.width;
   final h = im.height;
 
+  // A cut-out photo (transparent background): use only the visible pixels.
+  bool cutout = false;
+  if (im.hasAlpha) {
+    int clear = 0;
+    for (final p in im) {
+      if (p.a < 128) clear++;
+    }
+    cutout = clear > w * h * 0.05;
+  }
+
   // Background estimate from the border.
   double br = 0, bg = 0, bb = 0;
   int bn = 0;
@@ -54,9 +64,15 @@ List<int> _analyze(Uint8List bytes) {
   final sb = <int, double>{};
 
   void collect(bool skipBackground) {
-    for (int y = (h * 0.12).floor(); y < (h * 0.88).ceil(); y++) {
-      for (int x = (w * 0.15).floor(); x < (w * 0.85).ceil(); x++) {
+    final y0 = cutout ? 0 : (h * 0.12).floor(), y1 = cutout ? h : (h * 0.88).ceil();
+    final x0 = cutout ? 0 : (w * 0.15).floor(), x1 = cutout ? w : (w * 0.85).ceil();
+    for (int y = y0; y < y1; y++) {
+      for (int x = x0; x < x1; x++) {
         final p = im.getPixel(x, y);
+        if (cutout) {
+          if (p.a < 128) continue;
+          skipBackground = false;
+        }
         final r = p.r.toDouble();
         final g = p.g.toDouble();
         final b = p.b.toDouble();

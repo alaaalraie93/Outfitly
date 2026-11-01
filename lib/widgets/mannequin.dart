@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../color_utils.dart';
 import '../l10n.dart';
 import '../models.dart';
+import 'sky.dart';
 
 /// Loads and caches decoded images for painting.
 class UiImageStore {
@@ -48,12 +49,14 @@ class Mannequin extends StatefulWidget {
   State<Mannequin> createState() => _MannequinState();
 }
 
-class _MannequinState extends State<Mannequin> with SingleTickerProviderStateMixin {
+class _MannequinState extends State<Mannequin> with TickerProviderStateMixin {
   double angle = -0.35;
   bool photoTexture = false;
   ui.Image? face;
   final Map<String, ui.Image> textures = {};
   late final AnimationController _spin;
+  late final AnimationController _idle;
+  bool _touched = false;
   double _spinFrom = 0;
   double _spinTo = 0;
   String _loadedSig = '';
@@ -68,8 +71,12 @@ class _MannequinState extends State<Mannequin> with SingleTickerProviderStateMix
         final t = Curves.easeInOutCubic.transform(_spin.value);
         setState(() => angle = _spinFrom + (_spinTo - _spinFrom) * t);
       });
+    // A gentle idle sway and drifting clouds until the user turns the figure.
+    _idle = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat();
     _loadImages();
   }
+
+  double get _shownAngle => _touched ? angle : angle + math.sin(_idle.value * math.pi * 2) * 0.32;
 
   @override
   void didUpdateWidget(covariant Mannequin oldWidget) {
@@ -83,6 +90,7 @@ class _MannequinState extends State<Mannequin> with SingleTickerProviderStateMix
   @override
   void dispose() {
     _spin.dispose();
+    _idle.dispose();
     super.dispose();
   }
 
@@ -105,6 +113,11 @@ class _MannequinState extends State<Mannequin> with SingleTickerProviderStateMix
   }
 
   void _spinAround() {
+    if (!_touched) {
+      angle = _shownAngle;
+      _touched = true;
+      _idle.stop();
+    }
     _spinFrom = angle;
     _spinTo = angle + math.pi * 2;
     _spin.forward(from: 0);
@@ -119,6 +132,11 @@ class _MannequinState extends State<Mannequin> with SingleTickerProviderStateMix
         behavior: HitTestBehavior.opaque,
         onHorizontalDragUpdate: (d) {
           if (_spin.isAnimating) _spin.stop();
+          if (!_touched) {
+            angle = _shownAngle;
+            _touched = true;
+            _idle.stop();
+          }
           final dir = Directionality.of(context) == TextDirection.rtl ? -1 : 1;
           setState(() => angle += d.delta.dx * 0.013 * dir);
         },
@@ -126,28 +144,23 @@ class _MannequinState extends State<Mannequin> with SingleTickerProviderStateMix
         child: Stack(
           children: [
             Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [scheme.surfaceContainerHighest.withValues(alpha: 0.55), scheme.surfaceContainerLow],
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: CustomPaint(
-                painter: MannequinPainter(
-                  profile: widget.profile,
-                  look: widget.look,
-                  angle: angle,
-                  photoTexture: photoTexture,
-                  face: face,
-                  textures: textures,
-                  dark: Theme.of(context).brightness == Brightness.dark,
-                ),
+              child: AnimatedBuilder(
+                animation: _idle,
+                builder: (context, _) {
+                  final dark = Theme.of(context).brightness == Brightness.dark;
+                  return CustomPaint(
+                    painter: SkyPainter(dark: dark, drift: _idle.value),
+                    foregroundPainter: MannequinPainter(
+                      profile: widget.profile,
+                      look: widget.look,
+                      angle: _shownAngle,
+                      photoTexture: photoTexture,
+                      face: face,
+                      textures: textures,
+                      dark: dark,
+                    ),
+                  );
+                },
               ),
             ),
             PositionedDirectional(
@@ -498,6 +511,102 @@ class MannequinPainter extends CustomPainter {
       }
     }
 
+    // ---- accessory ----
+    final acc = look.accessory;
+    if (acc != null) {
+      final ap = Paint()..color = acc.color;
+      final dark2 = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = shade(acc.color, -0.25);
+      final side = s >= 0 ? 1 : -1;
+      switch (acc.subType) {
+        case 'bag':
+          final w = wristJ(side);
+          final bag = RRect.fromRectAndRadius(
+            Rect.fromLTRB(_x(w.dx - 0.035), _y(w.dy + 0.02), _x(w.dx + 0.075), _y(w.dy + 0.115)),
+            Radius.circular(_w(0.014)),
+          );
+          canvas.drawLine(_p(w.dx, w.dy + 0.03), _p(w.dx - 0.02, w.dy + 0.02), dark2..strokeWidth = 2);
+          canvas.drawLine(_p(w.dx, w.dy + 0.03), _p(w.dx + 0.06, w.dy + 0.02), dark2);
+          canvas.drawRRect(bag, ap);
+          canvas.drawRRect(bag, dark2..strokeWidth = 1.2);
+          break;
+        case 'watch':
+          final w = wristJ(-side);
+          final band = _limb([Offset(w.dx, w.dy - 0.012), Offset(w.dx, w.dy + 0.004)], [0.024, 0.024], caps: false);
+          canvas.drawPath(band, ap);
+          canvas.drawCircle(_p(w.dx, w.dy - 0.004), _w(0.011), Paint()..color = shade(acc.color, 0.3));
+          canvas.drawCircle(_p(w.dx, w.dy - 0.004), _w(0.011), dark2);
+          break;
+        case 'belt':
+          final by = waistY + (female ? 0.02 : 0.012);
+          final belt = Rect.fromLTRB(_x(-waistHalf - 0.012), _y(by), _x(waistHalf + 0.012), _y(by + 0.018));
+          canvas.drawRRect(RRect.fromRectAndRadius(belt, Radius.circular(_w(0.004))), ap);
+          if (front) {
+            canvas.drawRect(
+              Rect.fromCenter(center: belt.center, width: _w(0.03), height: belt.height * 0.9),
+              Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 2
+                ..color = const Color(0xFFD9B44A),
+            );
+          }
+          break;
+        case 'scarf':
+          final scarf = _smooth(_mirror([
+            Offset(-neckHalf * 1.5, headH * 0.92),
+            Offset(-neckHalf * 1.9, shoulderY + 0.012),
+            Offset(-neckHalf * 0.6, shoulderY + 0.03),
+          ], Offset(0, shoulderY + 0.035)));
+          canvas.drawPath(scarf, ap);
+          if (front) {
+            final tail = Path()
+              ..addRect(Rect.fromLTRB(_x(neckHalf * 0.2), _y(shoulderY + 0.02), _x(neckHalf * 1.3), _y(shoulderY + 0.13)));
+            canvas.drawPath(tail, ap);
+            canvas.drawPath(tail, dark2);
+          }
+          break;
+        case 'necklace':
+          if (front) {
+            final chain = Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.6
+              ..color = acc.color;
+            final n = Path()
+              ..moveTo(_x(-neckHalf * 1.1), _y(neckEnd))
+              ..quadraticBezierTo(_x(0), _y(neckEnd + 0.09), _x(neckHalf * 1.1), _y(neckEnd));
+            canvas.drawPath(n, chain);
+            canvas.drawCircle(_p(0, neckEnd + 0.047), _w(0.009), ap);
+          }
+          break;
+        case 'hat':
+          final brim = Rect.fromCenter(center: Offset(headRect.center.dx, headRect.top + headRect.height * 0.3), width: headRect.width * 1.5, height: headRect.height * 0.16);
+          final crown = Rect.fromLTRB(headRect.left + headRect.width * 0.12, headRect.top - headRect.height * 0.12, headRect.right - headRect.width * 0.12, brim.center.dy);
+          canvas.drawRRect(RRect.fromRectAndCorners(crown, topLeft: Radius.circular(crown.width * 0.4), topRight: Radius.circular(crown.width * 0.4)), ap);
+          canvas.drawOval(brim, ap);
+          canvas.drawOval(brim, dark2);
+          break;
+        case 'glasses':
+          if (front && c > 0.2) {
+            final gy = headRect.top + headRect.height * 0.45;
+            final r = headRect.width * 0.17;
+            final frame = Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.2
+              ..color = acc.color;
+            final lens = Paint()..color = acc.color.withValues(alpha: 0.28);
+            for (final k in const [-1, 1]) {
+              final cc = Offset(headRect.center.dx + k * headRect.width * 0.22, gy);
+              canvas.drawCircle(cc, r, lens);
+              canvas.drawCircle(cc, r, frame);
+            }
+            canvas.drawLine(Offset(headRect.center.dx - headRect.width * 0.05, gy), Offset(headRect.center.dx + headRect.width * 0.05, gy), frame);
+          }
+          break;
+      }
+    }
+
     // ---- light & shade: turning the figure moves the light ----
     final left = _x(-0.3), right = _x(0.3);
     final shadeL = 0.06 + 0.2 * (1 + s) / 2;
@@ -588,6 +697,7 @@ class MannequinPainter extends CustomPainter {
     final b = path.getBounds();
     final tex = item == null ? null : textures[item.id];
     if (item != null && photoTexture && tex != null) {
+      canvas.drawPath(path, Paint()..color = item.color);
       final iw = tex.width.toDouble(), ih = tex.height.toDouble();
       final scale = math.max(b.width / (iw * 0.62), b.height / (ih * 0.62));
       final tx = b.center.dx - scale * iw / 2;

@@ -9,6 +9,7 @@ import '../matching.dart';
 import '../models.dart';
 import '../state.dart';
 import 'mannequin.dart';
+import 'sky.dart';
 
 Color scoreColor(int score) {
   if (score >= 80) return const Color(0xFF2E9E6A);
@@ -89,16 +90,25 @@ class ItemImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cut = item.imagePath.toLowerCase().endsWith('.png');
+    final scheme = Theme.of(context).colorScheme;
+    final img = Image.file(
+      File(item.imagePath),
+      fit: cut ? BoxFit.contain : BoxFit.cover,
+      cacheWidth: 400,
+      errorBuilder: (_, __, ___) => Center(child: Icon(Icons.checkroom, color: item.color)),
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Container(
-        color: item.color.withValues(alpha: 0.18),
-        child: Image.file(
-          File(item.imagePath),
-          fit: BoxFit.cover,
-          cacheWidth: 400,
-          errorBuilder: (_, __, ___) => Center(child: Icon(Icons.checkroom, color: item.color)),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [item.color.withValues(alpha: 0.12), scheme.primaryContainer.withValues(alpha: 0.55)],
+          ),
         ),
+        child: cut ? Padding(padding: EdgeInsets.all(radius * 0.45), child: img) : img,
       ),
     );
   }
@@ -273,8 +283,12 @@ class EmptyState extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(color: scheme.primaryContainer, shape: BoxShape.circle),
-              child: Icon(icon, size: 44, color: scheme.onPrimaryContainer),
+              decoration: BoxDecoration(
+                gradient: Sky.brand,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Sky.blue.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 8))],
+              ),
+              child: Icon(icon, size: 44, color: Colors.white),
             ),
             const SizedBox(height: 16),
             Text(text, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),

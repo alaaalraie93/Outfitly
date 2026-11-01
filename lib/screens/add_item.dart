@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../color_utils.dart';
+import '../cutout.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
@@ -20,7 +21,10 @@ class AddItemScreen extends StatefulWidget {
 
 class _AddItemScreenState extends State<AddItemScreen> {
   String? photoPath;
+  String? originalPath;
+  String? cutoutPath;
   bool analyzing = false;
+  bool removingBg = false;
   List<int> palette = [];
   int? color;
   ClothCat category = ClothCat.top;
@@ -59,19 +63,49 @@ class _AddItemScreenState extends State<AddItemScreen> {
       final x = await ImagePicker().pickImage(source: src, maxWidth: 1400, imageQuality: 88);
       if (x == null) return;
       setState(() {
+        originalPath = x.path;
+        cutoutPath = null;
         photoPath = x.path;
-        analyzing = true;
+        removingBg = true;
       });
-      final colors = await analyzeImageColors(x.path);
+      final cut = await removeBackground(x.path);
       if (!mounted) return;
       setState(() {
-        palette = colors;
-        color = colors.first;
-        analyzing = false;
+        removingBg = false;
+        cutoutPath = cut;
+        if (cut != null) photoPath = cut;
       });
+      if (cut == null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('bg_failed')), behavior: SnackBarBehavior.floating));
+      }
+      await _analyze();
     } catch (e) {
-      if (mounted) setState(() => analyzing = false);
+      if (mounted) {
+        setState(() {
+          analyzing = false;
+          removingBg = false;
+        });
+      }
     }
+  }
+
+  Future<void> _analyze() async {
+    final path = photoPath;
+    if (path == null) return;
+    setState(() => analyzing = true);
+    final colors = await analyzeImageColors(path);
+    if (!mounted) return;
+    setState(() {
+      palette = colors;
+      color = colors.first;
+      analyzing = false;
+    });
+  }
+
+  void _usePhoto(String? path) {
+    if (path == null || path == photoPath) return;
+    setState(() => photoPath = path);
+    _analyze();
   }
 
   void _setCategory(ClothCat c) {
@@ -185,7 +219,43 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     : Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.file(File(path), fit: BoxFit.cover),
+                          if (path.toLowerCase().endsWith('.png'))
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: RadialGradient(colors: [scheme.primaryContainer.withValues(alpha: 0.7), scheme.surfaceContainerHighest]),
+                              ),
+                              child: Padding(padding: const EdgeInsets.all(24), child: Image.file(File(path), fit: BoxFit.contain)),
+                            )
+                          else
+                            Image.file(File(path), fit: BoxFit.cover),
+                          if (cutoutPath != null && originalPath != null)
+                            PositionedDirectional(
+                              top: 12,
+                              start: 12,
+                              child: SegmentedButton<String>(
+                                showSelectedIcon: false,
+                                segments: [
+                                  ButtonSegment(value: cutoutPath!, label: Text(context.tr('photo_cutout'))),
+                                  ButtonSegment(value: originalPath!, label: Text(context.tr('photo_original'))),
+                                ],
+                                selected: {path},
+                                onSelectionChanged: (v) => _usePhoto(v.first),
+                              ),
+                            ),
+                          if (removingBg)
+                            Container(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const CircularProgressIndicator(color: Colors.white),
+                                    const SizedBox(height: 12),
+                                    Text(context.tr('removing_bg'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ),
                           PositionedDirectional(
                             bottom: 12,
                             end: 12,
@@ -293,7 +363,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-            onPressed: (path == null || color == null || analyzing || saving) ? null : _save,
+            onPressed: (path == null || color == null || analyzing || removingBg || saving) ? null : _save,
             icon: const Icon(Icons.check),
             label: Text(context.tr('save')),
           ),

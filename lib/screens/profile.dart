@@ -7,6 +7,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../widgets/common.dart';
+import '../widgets/sky.dart';
 import '../widgets/mannequin.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -109,7 +110,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr('profile_title'), style: const TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(title: BrandTitle(context.tr('profile_title'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
         children: [
@@ -227,7 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: Text(context.tr('reset_all')),
           ),
           const SizedBox(height: 12),
-          Center(child: Text('Outfitly v1.0.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
+          Center(child: Text('Outfitly v1.1.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
         ],
       ),
     );

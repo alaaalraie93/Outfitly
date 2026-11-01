@@ -4,6 +4,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../widgets/common.dart';
+import '../widgets/sky.dart';
 
 /// Manual outfit builder with a live match percentage.
 class MixScreen extends StatefulWidget {
@@ -26,7 +27,7 @@ class _MixScreenState extends State<MixScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr('tab_mix'), style: const TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(title: BrandTitle(context.tr('tab_mix'))),
       body: s.items.isEmpty
           ? EmptyState(icon: Icons.auto_awesome, text: context.tr('empty_wardrobe'))
           : ListView(

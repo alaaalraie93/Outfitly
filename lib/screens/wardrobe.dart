@@ -4,6 +4,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../widgets/common.dart';
+import '../widgets/sky.dart';
 import 'add_item.dart';
 import 'item_detail.dart';
 
@@ -19,7 +20,7 @@ class WardrobeScreen extends StatelessWidget {
       length: cats.length + 1,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(context.tr('tab_wardrobe'), style: const TextStyle(fontWeight: FontWeight.w800)),
+          title: BrandTitle(context.tr('tab_wardrobe')),
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
