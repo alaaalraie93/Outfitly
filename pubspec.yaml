@@ -1,0 +1,20 @@
+name: outfitly
+description: "Outfitly - smart outfit matching from your own wardrobe."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  image_picker: ^1.1.2
+  path_provider: ^2.1.4
+  http: ^1.2.2
+  image: ^4.2.0
+
+flutter:
+  uses-material-design: true
