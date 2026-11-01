@@ -45,6 +45,25 @@ jobs:
       - name: Rename the APK
         run: cp build/app/outputs/flutter-apk/app-release.apk Outfitly.apk
 
+      # Signs every build with the same Outfitly key so updates install over
+      # the previous version. The key lives in the KEYSTORE_BASE64 secret.
+      - name: Sign with the Outfitly key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 secret is missing - the APK keeps a temporary key and will not update over older builds."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > outfitly.jks
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" sign --ks outfitly.jks --ks-key-alias outfitly \
+            --ks-pass pass:7c07036bbd636330ca5aaec1 --key-pass pass:7c07036bbd636330ca5aaec1 \
+            --out Outfitly-signed.apk Outfitly.apk
+          mv Outfitly-signed.apk Outfitly.apk
+          "$BT/apksigner" verify --print-certs Outfitly.apk | head -3
+          rm -f outfitly.jks
+
       - name: Upload the APK (Actions tab)
         uses: actions/upload-artifact@v4
         with:
