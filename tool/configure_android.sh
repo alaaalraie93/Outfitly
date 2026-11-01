@@ -22,6 +22,11 @@ for G in android/app/build.gradle.kts android/app/build.gradle; do
   fi
 done
 
+# The 3D viewer talks to a small server on the phone itself (127.0.0.1).
+if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
+  sed -i 's#<application#<application android:usesCleartextTraffic="true"#' "$MANIFEST"
+fi
+
 # App name shown under the icon.
 sed -i 's/android:label="[^"]*"/android:label="Outfitly"/' "$MANIFEST"
 

@@ -1,7 +1,7 @@
 name: outfitly
 description: "Outfitly - smart outfit matching from your own wardrobe."
 publish_to: 'none'
-version: 1.1.0+2
+version: 1.2.0+3
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -16,6 +16,11 @@ dependencies:
   http: ^1.2.2
   image: ^4.2.0
   google_mlkit_subject_segmentation: ^0.2.1
+  google_mlkit_image_labeling: ^0.16.1
+  model_viewer_plus: ^1.10.0
+  webview_flutter: ^4.11.0
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/models/

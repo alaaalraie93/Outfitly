@@ -110,7 +110,7 @@ const Map<String, Map<String, String>> _strings = {
     'reset_all': 'Delete all data',
     'reset_confirm': 'This deletes your wardrobe, outfits and profile. Continue?',
     'body': 'Body',
-    'drag_rotate': 'Drag to rotate',
+    'drag_rotate': 'Swipe to turn',
     'thanks_feedback': 'Got it - suggestions will learn from this',
     'r_color_neutral': 'Neutral colors go with everything',
     'r_color_mono': 'Same color family - a tonal look',
@@ -169,6 +169,8 @@ const Map<String, Map<String, String>> _strings = {
     'forgotten_title': 'Forgotten in your closet',
     'forgotten_sub': 'Not worn for a month - give them a chance',
     'tagline': 'Dress the sky, every day',
+    'detecting': 'Recognising the piece...',
+    'auto_filled': 'Filled in from the photo - change anything that is wrong',
   },
   'ar': {
     'app_name': 'Outfitly',
@@ -277,7 +279,7 @@ const Map<String, Map<String, String>> _strings = {
     'reset_all': 'حذف كل البيانات',
     'reset_confirm': 'هاد رح يحذف الخزانة واللبسات والحساب. أكيد؟',
     'body': 'الجسم',
-    'drag_rotate': 'اسحب لتلفّ المجسم',
+    'drag_rotate': 'اسحب لتلفّه',
     'thanks_feedback': 'تمام - الاقتراحات رح تتعلم من رأيك',
     'r_color_neutral': 'الألوان المحايدة بتمشي مع كلشي',
     'r_color_mono': 'نفس عيلة اللون - لبسة متدرجة',
@@ -336,6 +338,8 @@ const Map<String, Map<String, String>> _strings = {
     'forgotten_title': 'منسية بالخزانة',
     'forgotten_sub': 'ما انلبست من شهر - اعطيها فرصة',
     'tagline': 'كل يوم لبسة بلون السما',
+    'detecting': 'عم نتعرّف على القطعة...',
+    'auto_filled': 'تعبّت لحالها من الصورة - غيّر أي شي مش مزبوط',
   },
 };
 

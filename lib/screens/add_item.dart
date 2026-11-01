@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../color_utils.dart';
+import '../classify.dart';
 import '../cutout.dart';
 import '../l10n.dart';
 import '../models.dart';
@@ -25,6 +26,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
   String? cutoutPath;
   bool analyzing = false;
   bool removingBg = false;
+  bool detecting = false;
+  bool autoFilled = false;
   List<int> palette = [];
   int? color;
   ClothCat category = ClothCat.top;
@@ -79,6 +82,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('bg_failed')), behavior: SnackBarBehavior.floating));
       }
       await _analyze();
+      await _autoFill();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -99,6 +103,25 @@ class _AddItemScreenState extends State<AddItemScreen> {
       palette = colors;
       color = colors.first;
       analyzing = false;
+    });
+  }
+
+  /// Fills category, type, style, season and pattern from the photo.
+  Future<void> _autoFill() async {
+    final orig = originalPath, shape = photoPath, c = color;
+    if (orig == null || shape == null || c == null) return;
+    setState(() => detecting = true);
+    final body = AppScope.read(context).profile.bodyType;
+    final d = await classifyPhoto(originalPath: orig, shapePath: shape, mainColor: c, body: body);
+    if (!mounted) return;
+    setState(() {
+      detecting = false;
+      autoFilled = true;
+      category = d.category;
+      subType = d.subType;
+      style = d.style;
+      season = d.season;
+      patterned = d.patterned;
     });
   }
 
@@ -303,6 +326,26 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 ],
               ),
             ),
+          if (detecting || autoFilled)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(16)),
+                child: Row(
+                  children: [
+                    detecting
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5))
+                        : Icon(Icons.auto_awesome, color: scheme.onPrimaryContainer),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(context.tr(detecting ? 'detecting' : 'auto_filled'),
+                          style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           section(
             context.tr('category'),
             Wrap(
@@ -363,7 +406,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-            onPressed: (path == null || color == null || analyzing || removingBg || saving) ? null : _save,
+            onPressed: (path == null || color == null || analyzing || removingBg || detecting || saving) ? null : _save,
             icon: const Icon(Icons.check),
             label: Text(context.tr('save')),
           ),
