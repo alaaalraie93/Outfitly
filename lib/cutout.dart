@@ -6,16 +6,18 @@ import 'package:google_mlkit_subject_segmentation/google_mlkit_subject_segmentat
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
+import 'segment.dart';
+
 /// Removes the background of a clothing photo on the phone (no internet needed
 /// once Google Play services has downloaded the model).
 /// Returns the path of a transparent PNG, or null if it could not be done.
 Future<String?> removeBackground(String path) async {
   final ml = await _removeWithMlKit(path);
   if (ml != null) return ml;
-  // Fallback for plain backgrounds (floor, bed, wall) when ML Kit is not ready yet.
+  // Fallback that runs on the phone itself: works on plain and textured floors / beds.
   try {
     final bytes = await File(path).readAsBytes();
-    final png = await compute(_plainBackgroundCutout, bytes);
+    final png = await compute(_smartCutout, bytes);
     if (png == null) return null;
     final dir = await getTemporaryDirectory();
     final out = File('${dir.path}/cutout-${DateTime.now().microsecondsSinceEpoch}.png');
@@ -26,54 +28,41 @@ Future<String?> removeBackground(String path) async {
   }
 }
 
-/// Removes an even background by its difference from the border colour.
-Uint8List? _plainBackgroundCutout(Uint8List bytes) {
-  var src = img.decodeImage(bytes);
-  if (src == null) return null;
-  src = img.bakeOrientation(src);
-  if (src.width > 900 || src.height > 900) {
-    src = src.width >= src.height ? img.copyResize(src, width: 900) : img.copyResize(src, height: 900);
+/// RGB bytes (w*h*3) of an image.
+Uint8List rgbBytes(img.Image im) {
+  final out = Uint8List(im.width * im.height * 3);
+  int i = 0;
+  for (int y = 0; y < im.height; y++) {
+    for (int x = 0; x < im.width; x++) {
+      final p = im.getPixel(x, y);
+      out[i++] = p.r.toInt();
+      out[i++] = p.g.toInt();
+      out[i++] = p.b.toInt();
+    }
   }
-  final w = src.width, h = src.height;
-  // Border colour and how even it is.
-  final border = <List<double>>[];
-  for (int x = 0; x < w; x += 4) {
-    for (final y in [0, 1, h - 2, h - 1]) {
+  return out;
+}
+
+img.Image fitInside(img.Image src, int max) {
+  if (src.width <= max && src.height <= max) return src;
+  return src.width >= src.height ? img.copyResize(src, width: max) : img.copyResize(src, height: max);
+}
+
+Uint8List? _smartCutout(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+  final src = fitInside(img.bakeOrientation(decoded), 900);
+  final small = fitInside(src, 360);
+  final mask = smartMask(rgbBytes(small), small.width, small.height);
+  if (mask == null) return null;
+  final alpha = upscaleMask(mask, small.width, small.height, src.width, src.height);
+  final out = img.Image(width: src.width, height: src.height, numChannels: 4);
+  for (int y = 0; y < src.height; y++) {
+    for (int x = 0; x < src.width; x++) {
       final p = src.getPixel(x, y);
-      border.add([p.r.toDouble(), p.g.toDouble(), p.b.toDouble()]);
+      out.setPixelRgba(x, y, p.r, p.g, p.b, alpha[y * src.width + x]);
     }
   }
-  for (int y = 0; y < h; y += 4) {
-    for (final x in [0, 1, w - 2, w - 1]) {
-      final p = src.getPixel(x, y);
-      border.add([p.r.toDouble(), p.g.toDouble(), p.b.toDouble()]);
-    }
-  }
-  final mean = [0.0, 0.0, 0.0];
-  for (final c in border) {
-    for (int i = 0; i < 3; i++) {
-      mean[i] += c[i] / border.length;
-    }
-  }
-  double spread = 0;
-  for (final c in border) {
-    spread += ((c[0] - mean[0]).abs() + (c[1] - mean[1]).abs() + (c[2] - mean[2]).abs()) / border.length;
-  }
-  if (spread > 60) return null; // busy background: keep the original photo
-  final threshold = 40 + spread;
-  final out = img.Image(width: w, height: h, numChannels: 4);
-  int kept = 0;
-  for (int y = 0; y < h; y++) {
-    for (int x = 0; x < w; x++) {
-      final p = src.getPixel(x, y);
-      final d = (p.r - mean[0]).abs() + (p.g - mean[1]).abs() + (p.b - mean[2]).abs();
-      final keep = d > threshold;
-      if (keep) kept++;
-      out.setPixelRgba(x, y, p.r, p.g, p.b, keep ? 255 : 0);
-    }
-  }
-  final share = kept / (w * h);
-  if (share < 0.08 || share > 0.92) return null;
   return _trimAndShrink(img.encodePng(out));
 }
 
@@ -114,7 +103,8 @@ Uint8List? _trimAndShrink(Uint8List png) {
     for (final p in probe) {
       if (p.a > 128) visible++;
     }
-    if (visible < probe.width * probe.height * 0.04) return null;
+    // Nothing left, or nothing removed: not a real cut-out.
+    if (visible < probe.width * probe.height * 0.04 || visible > probe.width * probe.height * 0.97) return null;
     var out = img.trim(decoded, mode: img.TrimMode.transparent);
     if (out.width > 900 || out.height > 900) {
       out = out.width >= out.height ? img.copyResize(out, width: 900) : img.copyResize(out, height: 900);

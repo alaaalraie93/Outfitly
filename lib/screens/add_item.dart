@@ -7,6 +7,8 @@ import '../color_utils.dart';
 import '../classify.dart';
 import '../cutout.dart';
 import '../rotate.dart';
+import '../widgets/color_picker.dart';
+import 'cutout_editor.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../state.dart';
@@ -28,6 +30,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   bool removingBg = false;
   bool detecting = false;
   bool rotating = false;
+  int? manualColor; // chosen by hand, kept when the photo changes
   bool autoFilled = false;
   List<int> palette = [];
   int? color;
@@ -46,6 +49,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     final e = widget.existing;
     if (e != null) {
       photoPath = e.imagePath;
+      originalPath = e.imagePath;
       palette = e.palette.isEmpty ? [e.colorValue] : List.of(e.palette);
       color = e.colorValue;
       category = e.category;
@@ -106,6 +110,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
     setState(() {
       palette = colors;
       color = colors.first;
+      final m = manualColor;
+      if (m != null) {
+        palette = [m, ...colors.where((c) => c != m)];
+        color = m;
+      }
       analyzing = false;
     });
   }
@@ -151,6 +160,29 @@ class _AddItemScreenState extends State<AddItemScreen> {
     });
     // The shape changed, so guess the type again for new pieces.
     if (turned != null && widget.existing == null) await _autoFill();
+  }
+
+  Future<void> _pickColor() async {
+    final picked = await showColorPicker(context, initial: color ?? 0xFF808080, photoPath: originalPath ?? photoPath);
+    if (picked == null || !mounted) return;
+    setState(() {
+      manualColor = picked;
+      palette = [picked, ...palette.where((c) => c != picked)];
+      color = picked;
+    });
+  }
+
+  Future<void> _editBackground() async {
+    final src = originalPath ?? photoPath;
+    if (src == null) return;
+    final result = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => CutoutEditorScreen(sourcePath: src)));
+    if (result == null || !mounted) return;
+    setState(() {
+      cutoutPath = result;
+      photoPath = result;
+    });
+    await _analyze();
+    if (widget.existing == null) await _autoFill();
   }
 
   void _usePhoto(String? path) {
@@ -315,6 +347,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton.filledTonal(
+                                  tooltip: context.tr('edit_bg'),
+                                  onPressed: (removingBg || rotating) ? null : _editBackground,
+                                  icon: const Icon(Icons.content_cut),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton.filledTonal(
                                   tooltip: context.tr('rotate_left'),
                                   onPressed: rotating ? null : () => _rotate(false),
                                   icon: const Icon(Icons.rotate_left),
@@ -338,7 +376,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
               ),
             ),
           ),
-          if (palette.isNotEmpty)
+          if (palette.isNotEmpty || path != null)
             section(
               context.tr('detected_colors'),
               Wrap(
@@ -359,6 +397,29 @@ class _AddItemScreenState extends State<AddItemScreen> {
                         ),
                       ),
                     ),
+                  GestureDetector(
+                    onTap: _pickColor,
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const SweepGradient(colors: [
+                          Color(0xFFE53935), Color(0xFFFDD835), Color(0xFF43A047),
+                          Color(0xFF1E88E5), Color(0xFF8E24AA), Color(0xFFE53935),
+                        ]),
+                        border: Border.all(color: scheme.outlineVariant),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(color: scheme.surface, shape: BoxShape.circle),
+                          child: Icon(Icons.add, size: 20, color: scheme.onSurface),
+                        ),
+                      ),
+                    ),
+                  ),
                   if (color != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
