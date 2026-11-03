@@ -338,7 +338,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: Text(context.tr('reset_all')),
           ),
           const SizedBox(height: 12),
-          Center(child: Text('Outfitly v1.6.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
+          Center(child: Text('Outfitly v1.7.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
         ],
       ),
     );

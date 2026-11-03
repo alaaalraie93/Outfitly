@@ -313,7 +313,36 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------- matching ----------
-  MatchResult? lookScore(Look look) => matcher.outfit(look.items);
+  MatchResult? lookScore(Look look) {
+    final r = matcher.outfit(look.items);
+    if (r == null || !look.missingUnderLayer) return r;
+    // A jacket with nothing under it is not a finished outfit.
+    return MatchResult((r.score - 15).clamp(0, 100), [const Reason('r_need_under', false), ...r.reasons]);
+  }
+
+  /// The jacket/coat that fits a look best, or null if none fits or it is too warm.
+  ClothingItem? bestOuterFor(Look look, Season target, {bool force = false}) {
+    if (!force && target == Season.summer) return null;
+    final outers = itemsIn(ClothCat.outer);
+    final clothes = look.clothes.where((e) => e.category != ClothCat.outer).toList();
+    if (outers.isEmpty || clothes.isEmpty) return null;
+    final m = matcher;
+    ClothingItem? best;
+    double bestScore = -1;
+    double bestMatch = 0;
+    for (final o in outers) {
+      final match = clothes.map((c) => m.pair(c, o).score).reduce((a, b) => a + b) / clothes.length;
+      final sc = match + seasonFit(o.season, target) * 0.3 + occasionFit(o.style, occasion) * 0.2 - recentWear(o.id) * 3;
+      if (sc > bestScore) {
+        bestScore = sc;
+        best = o;
+        bestMatch = match;
+      }
+    }
+    if (best == null) return null;
+    if (!force && target == Season.transitional && bestMatch < 70) return null;
+    return best;
+  }
 
   List<ScoredItem> matchesFor(ClothingItem item, ClothCat target) {
     final m = matcher;
@@ -326,10 +355,15 @@ class AppState extends ChangeNotifier {
   Look bestLookFor(ClothingItem item) {
     var look = Look.fromItems([item]);
     for (final c in targetsFor(item.category, profile.bodyType)) {
-      if (c == ClothCat.dress) continue;
+      if (c == ClothCat.dress || c == ClothCat.outer) continue;
       if (look.dress != null && (c == ClothCat.top || c == ClothCat.bottom)) continue;
       final best = matchesFor(item, c);
       if (best.isNotEmpty) look = look.withItem(best.first.item);
+    }
+    // Add a jacket when the weather calls for one.
+    if (item.category != ClothCat.outer) {
+      final o = bestOuterFor(look, targetSeason());
+      if (o != null) look = look.withItem(o);
     }
     return look;
   }
@@ -431,6 +465,10 @@ class AppState extends ChangeNotifier {
         }
       }
       return best == null ? look : look.withItem(best);
+    }).map((look) {
+      // Cool day: put the best matching jacket or coat over it.
+      final o = bestOuterFor(look, target);
+      return o == null ? look : look.withItem(o);
     }).toList();
   }
 

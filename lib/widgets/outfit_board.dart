@@ -115,44 +115,58 @@ class _OutfitBoardState extends State<OutfitBoard> {
   /// Head-to-toe: pieces overlap a little, like a styled flat-lay.
   Widget _stack(BuildContext context, Look look, Size size) {
     final w = size.width, h = size.height;
-    final children = <Widget>[];
-    final pad = 14.0;
-    final mainW = w * 0.62;
-    final cx = (w - mainW) / 2;
+    const pad = 14.0;
+    final layered = look.outer != null;
+    final mainW = w * (layered ? 0.54 : 0.62);
+    // With a jacket, the top/dress moves right and the jacket sits on the left over it.
+    final cx = layered ? w * 0.40 : (w - mainW) / 2;
+    final midX = layered ? w * 0.5 - mainW / 2 : cx;
 
+    Widget? bottom;
+    Widget top;
     if (look.dress != null) {
-      children.add(Positioned(left: cx - w * 0.04, width: mainW + w * 0.08, top: pad, height: h * 0.74, child: _Piece(item: look.dress!)));
+      top = Positioned(left: cx - w * 0.04, width: mainW + w * 0.08, top: pad, height: h * 0.74, child: _Piece(item: look.dress!));
     } else {
-      children.add(Positioned(
+      top = Positioned(
         left: cx,
         width: mainW,
         top: pad,
         height: h * 0.40,
-        child: look.top != null ? _Piece(item: look.top!) : _EmptySlot(label: catLabel(context, ClothCat.top), icon: Icons.checkroom),
-      ));
-      children.add(Positioned(
-        left: cx + mainW * 0.08,
+        child: look.top != null
+            ? _Piece(item: look.top!)
+            : _EmptySlot(label: catLabel(context, ClothCat.top), icon: Icons.checkroom, warn: layered),
+      );
+      bottom = Positioned(
+        left: midX + mainW * 0.08,
         width: mainW * 0.84,
         top: h * 0.36,
         height: h * 0.44,
         child: look.bottom != null ? _Piece(item: look.bottom!) : _EmptySlot(label: catLabel(context, ClothCat.bottom), icon: Icons.straighten),
-      ));
+      );
     }
-    children.add(Positioned(
-      left: cx + mainW * 0.18,
-      width: mainW * 0.64,
-      top: h * 0.78,
-      height: h * 0.2,
-      child: look.shoes != null ? _Piece(item: look.shoes!) : _EmptySlot(label: catLabel(context, ClothCat.shoes), icon: Icons.ice_skating_outlined),
-    ));
-    if (look.accessory != null) {
-      children.add(PositionedDirectional(end: pad, top: h * 0.42, width: w * 0.2, height: w * 0.2, child: _Piece(item: look.accessory!)));
-    }
-    // Bottom first so the top overlaps the waistband.
-    if (look.dress == null && children.length >= 2) {
-      final topPiece = children.removeAt(0);
-      children.insert(1, topPiece);
-    }
+    final children = <Widget>[
+      if (bottom != null) bottom,
+      top,
+      if (layered)
+        Positioned(
+          left: pad,
+          width: w * 0.5,
+          top: pad + h * 0.02,
+          height: look.dress != null ? h * 0.5 : h * 0.42,
+          child: _Piece(item: look.outer!),
+        ),
+      Positioned(
+        left: midX + mainW * 0.18,
+        width: mainW * 0.64,
+        top: h * 0.78,
+        height: h * 0.2,
+        child: look.shoes != null
+            ? _Piece(item: look.shoes!)
+            : _EmptySlot(label: catLabel(context, ClothCat.shoes), icon: Icons.ice_skating_outlined),
+      ),
+      if (look.accessory != null)
+        PositionedDirectional(end: pad, top: h * 0.5, width: w * 0.2, height: w * 0.2, child: _Piece(item: look.accessory!)),
+    ];
     return Stack(children: children);
   }
 
@@ -250,7 +264,10 @@ class _Piece extends StatelessWidget {
 class _EmptySlot extends StatelessWidget {
   final String label;
   final IconData icon;
-  const _EmptySlot({required this.label, required this.icon});
+
+  /// Highlighted when the outfit really needs this piece (a jacket with nothing under it).
+  final bool warn;
+  const _EmptySlot({required this.label, required this.icon, this.warn = false});
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +276,7 @@ class _EmptySlot extends StatelessWidget {
       margin: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant, width: 1.5),
+        border: Border.all(color: warn ? scheme.error : scheme.outlineVariant, width: warn ? 2 : 1.5),
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
       ),
       child: Center(

@@ -150,7 +150,28 @@ PackPlan planTrip(AppState s, {required int days, required Season season, requir
       i++;
     }
   }
-  return PackPlan([...clothes, ...chosenShoes], dayLooks);
+  // Jacket or coat for the trip when it is not summer: the one that fits most outfits.
+  final chosenOuter = <ClothingItem>[];
+  if (season != Season.summer && clothes.isNotEmpty) {
+    final outers = pool(ClothCat.outer);
+    ClothingItem? best;
+    double bestAvg = -1;
+    for (final o in outers) {
+      final avg = clothes.map((c) => score(c, o)).reduce((a, b) => a + b) / clothes.length +
+          seasonFit(o.season, season) * 0.3;
+      if (avg > bestAvg) {
+        bestAvg = avg;
+        best = o;
+      }
+    }
+    if (best != null) {
+      chosenOuter.add(best);
+      for (int d = 0; d < dayLooks.length; d++) {
+        dayLooks[d] = dayLooks[d].withItem(best);
+      }
+    }
+  }
+  return PackPlan([...clothes, ...chosenOuter, ...chosenShoes], dayLooks);
 }
 
 // ======================================================================
@@ -173,7 +194,10 @@ const List<(ClothCat, String, int)> _candidates = [
   (ClothCat.top, 'sweater', 0xFF8C8C8C),
   (ClothCat.top, 'sweater', 0xFF1F2A44),
   (ClothCat.top, 'sweater', 0xFFD8C7A8),
-  (ClothCat.top, 'jacket', 0xFF5A4632),
+  (ClothCat.outer, 'jacket', 0xFF5A4632),
+  (ClothCat.outer, 'jacket', 0xFF1F2A44),
+  (ClothCat.outer, 'coat', 0xFF2B2B2B),
+  (ClothCat.outer, 'coat', 0xFFC2A27C),
   (ClothCat.bottom, 'jeans', 0xFF3B5B8C),
   (ClothCat.bottom, 'jeans', 0xFF222222),
   (ClothCat.bottom, 'trousers', 0xFFD2BE9C),
@@ -238,6 +262,14 @@ List<MissingSuggestion> whatsMissing(AppState s, {int max = 3}) {
         break;
       case ClothCat.dress:
         count = shoes.isEmpty ? 1 : shoes.where((sh) => goodLook([fake, sh])).length;
+        break;
+      case ClothCat.outer:
+        // Layered outfits it would open: top + bottom it goes well over.
+        for (final t in tops) {
+          for (final b in bottoms) {
+            if (goodLook([t, fake, b])) count++;
+          }
+        }
         break;
       case ClothCat.accessory:
         break;

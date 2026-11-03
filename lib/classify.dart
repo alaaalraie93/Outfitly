@@ -96,8 +96,8 @@ Detected _decide(List<String> labels, _Shape s, Color color, BodyType body) {
     cat = ClothCat.bottom;
     sub = 'trousers';
   } else if (_has(labels, ['jacket', 'blazer', 'outerwear', 'tuxedo'])) {
-    cat = ClothCat.top;
-    sub = 'jacket';
+    cat = ClothCat.outer;
+    sub = _has(labels, ['blazer', 'tuxedo']) ? 'blazer' : 'jacket';
     if (_has(labels, ['blazer', 'tuxedo'])) style = StyleLevel.formal;
   } else if (s.known && s.legGap) {
     cat = ClothCat.bottom;

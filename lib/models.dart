@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum ClothCat { top, bottom, dress, shoes, accessory }
+enum ClothCat { top, outer, bottom, dress, shoes, accessory }
 
 enum StyleLevel { sport, casual, smart, formal }
 
@@ -31,7 +31,8 @@ double occasionFit(StyleLevel s, Occasion o) {
 }
 
 const Map<ClothCat, List<String>> kSubTypes = {
-  ClothCat.top: ['tshirt', 'shirt', 'blouse', 'sweater', 'hoodie', 'jacket'],
+  ClothCat.top: ['tshirt', 'shirt', 'blouse', 'sweater', 'hoodie'],
+  ClothCat.outer: ['jacket', 'coat', 'blazer'],
   ClothCat.bottom: ['jeans', 'trousers', 'sweatpants', 'shorts', 'skirt'],
   ClothCat.dress: ['dress'],
   ClothCat.shoes: ['sneakers', 'boots', 'formal_shoes', 'sandals', 'heels'],
@@ -42,8 +43,8 @@ const Map<ClothCat, List<String>> kSubTypes = {
 const Set<String> kFeminineOnly = {'blouse', 'skirt', 'heels', 'dress'};
 
 List<ClothCat> categoriesFor(BodyType b) {
-  if (b == BodyType.boy) return [ClothCat.top, ClothCat.bottom, ClothCat.shoes, ClothCat.accessory];
-  return [ClothCat.top, ClothCat.bottom, ClothCat.dress, ClothCat.shoes, ClothCat.accessory];
+  if (b == BodyType.boy) return [ClothCat.top, ClothCat.outer, ClothCat.bottom, ClothCat.shoes, ClothCat.accessory];
+  return [ClothCat.top, ClothCat.outer, ClothCat.bottom, ClothCat.dress, ClothCat.shoes, ClothCat.accessory];
 }
 
 List<String> subTypesFor(ClothCat c, BodyType b) {
@@ -71,7 +72,10 @@ StyleLevel defaultStyleFor(String sub) {
       return StyleLevel.smart;
     case 'formal_shoes':
     case 'heels':
+    case 'blazer':
       return StyleLevel.formal;
+    case 'coat':
+      return StyleLevel.smart;
     default:
       return StyleLevel.casual;
   }
@@ -86,6 +90,7 @@ Season defaultSeasonFor(String sub) {
     case 'sweater':
     case 'boots':
     case 'scarf':
+    case 'coat':
       return Season.winter;
     case 'jacket':
     case 'hoodie':
@@ -149,7 +154,9 @@ class ClothingItem {
       };
 
   factory ClothingItem.fromJson(Map<String, dynamic> j) {
-    final cat = enumByName(ClothCat.values, j['category'], ClothCat.top);
+    var cat = enumByName(ClothCat.values, j['category'], ClothCat.top);
+    // Jackets used to be tops; they are now their own layer.
+    if (cat == ClothCat.top && const ['jacket', 'coat', 'blazer'].contains(j['subType'])) cat = ClothCat.outer;
     return ClothingItem(
       id: j['id'] as String,
       imagePath: (j['imagePath'] ?? '') as String,
@@ -270,14 +277,16 @@ class Profile {
 }
 
 /// A set of pieces worn together. A dress replaces top + bottom.
+/// The outer layer (jacket, coat) is worn over a top or a dress.
 class Look {
   final ClothingItem? top;
+  final ClothingItem? outer;
   final ClothingItem? bottom;
   final ClothingItem? dress;
   final ClothingItem? shoes;
   final ClothingItem? accessory;
 
-  const Look({this.top, this.bottom, this.dress, this.shoes, this.accessory});
+  const Look({this.top, this.outer, this.bottom, this.dress, this.shoes, this.accessory});
 
   factory Look.fromItems(Iterable<ClothingItem> items) {
     var l = const Look();
@@ -290,6 +299,7 @@ class Look {
   List<ClothingItem> get items => [
         if (dress != null) dress!,
         if (dress == null && top != null) top!,
+        if (outer != null) outer!,
         if (dress == null && bottom != null) bottom!,
         if (shoes != null) shoes!,
         if (accessory != null) accessory!,
@@ -300,10 +310,15 @@ class Look {
 
   bool get isEmpty => items.isEmpty;
 
+  /// A jacket needs something under it.
+  bool get missingUnderLayer => outer != null && top == null && dress == null;
+
   ClothingItem? slot(ClothCat c) {
     switch (c) {
       case ClothCat.top:
         return top;
+      case ClothCat.outer:
+        return outer;
       case ClothCat.bottom:
         return bottom;
       case ClothCat.dress:
@@ -315,33 +330,60 @@ class Look {
     }
   }
 
+  Look copy({
+    ClothingItem? top,
+    ClothingItem? outer,
+    ClothingItem? bottom,
+    ClothingItem? dress,
+    ClothingItem? shoes,
+    ClothingItem? accessory,
+    bool clearTop = false,
+    bool clearOuter = false,
+    bool clearBottom = false,
+    bool clearDress = false,
+    bool clearShoes = false,
+    bool clearAccessory = false,
+  }) =>
+      Look(
+        top: clearTop ? null : (top ?? this.top),
+        outer: clearOuter ? null : (outer ?? this.outer),
+        bottom: clearBottom ? null : (bottom ?? this.bottom),
+        dress: clearDress ? null : (dress ?? this.dress),
+        shoes: clearShoes ? null : (shoes ?? this.shoes),
+        accessory: clearAccessory ? null : (accessory ?? this.accessory),
+      );
+
   Look withItem(ClothingItem it) {
     switch (it.category) {
       case ClothCat.top:
-        return Look(top: it, bottom: bottom, shoes: shoes, accessory: accessory);
+        return copy(top: it, clearDress: true);
+      case ClothCat.outer:
+        return copy(outer: it);
       case ClothCat.bottom:
-        return Look(top: top, bottom: it, shoes: shoes, accessory: accessory);
+        return copy(bottom: it, clearDress: true);
       case ClothCat.dress:
-        return Look(dress: it, shoes: shoes, accessory: accessory);
+        return copy(dress: it, clearTop: true, clearBottom: true);
       case ClothCat.shoes:
-        return Look(top: top, bottom: bottom, dress: dress, shoes: it, accessory: accessory);
+        return copy(shoes: it);
       case ClothCat.accessory:
-        return Look(top: top, bottom: bottom, dress: dress, shoes: shoes, accessory: it);
+        return copy(accessory: it);
     }
   }
 
   Look without(ClothCat c) {
     switch (c) {
       case ClothCat.top:
-        return Look(bottom: bottom, dress: dress, shoes: shoes, accessory: accessory);
+        return copy(clearTop: true);
+      case ClothCat.outer:
+        return copy(clearOuter: true);
       case ClothCat.bottom:
-        return Look(top: top, dress: dress, shoes: shoes, accessory: accessory);
+        return copy(clearBottom: true);
       case ClothCat.dress:
-        return Look(top: top, bottom: bottom, shoes: shoes, accessory: accessory);
+        return copy(clearDress: true);
       case ClothCat.shoes:
-        return Look(top: top, bottom: bottom, dress: dress, accessory: accessory);
+        return copy(clearShoes: true);
       case ClothCat.accessory:
-        return Look(top: top, bottom: bottom, dress: dress, shoes: shoes);
+        return copy(clearAccessory: true);
     }
   }
 

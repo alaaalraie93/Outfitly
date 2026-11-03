@@ -164,17 +164,21 @@ class Matcher {
 /// Which categories should be suggested under an opened piece.
 List<ClothCat> targetsFor(ClothCat c, BodyType body) {
   final cats = categoriesFor(body);
+  final dress = cats.contains(ClothCat.dress);
   switch (c) {
     case ClothCat.top:
-      return [ClothCat.bottom, ClothCat.shoes, ClothCat.accessory];
+      return [ClothCat.bottom, ClothCat.shoes, ClothCat.outer, ClothCat.accessory];
+    case ClothCat.outer:
+      // A jacket always gets something under it.
+      return [ClothCat.top, ClothCat.bottom, ClothCat.shoes, if (dress) ClothCat.dress, ClothCat.accessory];
     case ClothCat.bottom:
-      return [ClothCat.top, ClothCat.shoes, ClothCat.accessory];
+      return [ClothCat.top, ClothCat.shoes, ClothCat.outer, ClothCat.accessory];
     case ClothCat.dress:
-      return [ClothCat.shoes, ClothCat.accessory];
+      return [ClothCat.shoes, ClothCat.outer, ClothCat.accessory];
     case ClothCat.shoes:
-      return [ClothCat.top, ClothCat.bottom, if (cats.contains(ClothCat.dress)) ClothCat.dress, ClothCat.accessory];
+      return [ClothCat.top, ClothCat.bottom, if (dress) ClothCat.dress, ClothCat.outer, ClothCat.accessory];
     case ClothCat.accessory:
-      return [ClothCat.top, ClothCat.bottom, if (cats.contains(ClothCat.dress)) ClothCat.dress, ClothCat.shoes];
+      return [ClothCat.top, ClothCat.bottom, if (dress) ClothCat.dress, ClothCat.outer, ClothCat.shoes];
   }
 }
 

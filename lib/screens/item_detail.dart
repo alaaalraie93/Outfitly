@@ -49,7 +49,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       current = s.bestLookFor(item);
     }
     final targets = targetsFor(item.category, s.profile.bodyType)
-        .where((c) => c != ClothCat.accessory || s.itemsIn(c).isNotEmpty)
+        .where((c) => (c != ClothCat.accessory && c != ClothCat.outer) || s.itemsIn(c).isNotEmpty)
         .toList();
     final text = Theme.of(context).textTheme;
 
